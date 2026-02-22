@@ -1,0 +1,596 @@
+---
+const title = "Dither Lab";
+---
+
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<link rel="stylesheet" href="https://unpkg.com/@knadh/oat/oat.min.css">
+	</head>
+	<body data-sidebar-layout="always" data-theme="dark">
+		<nav data-topnav>
+			<button data-sidebar-toggle aria-label="Toggle menu" class="outline">☰</button>
+      <svg style="width: 2em;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M5 16V20M6 4V8M7 18H3M8 6H4M13 4L14.7528 8.44437C14.9407 8.92083 15.0347 9.15906 15.1786 9.35994C15.3061 9.538 15.462 9.69391 15.6401 9.82143C15.8409 9.9653 16.0792 10.0593 16.5556 10.2472L21 12L16.5556 13.7528C16.0792 13.9407 15.8409 14.0347 15.6401 14.1786C15.462 14.3061 15.3061 14.462 15.1786 14.6401C15.0347 14.8409 14.9407 15.0792 14.7528 15.5556L13 20L11.2472 15.5556C11.0593 15.0792 10.9653 14.8409 10.8214 14.6401C10.6939 14.462 10.538 14.3061 10.3599 14.1786C10.1591 14.0347 9.92083 13.9407 9.44437 13.7528L5 12L9.44437 10.2472C9.92083 10.0593 10.1591 9.9653 10.3599 9.82143C10.538 9.69391 10.6939 9.538 10.8214 9.35994C10.9653 9.15906 11.0593 8.92083 11.2472 8.44437L13 4Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
+		</nav>
+
+		<aside data-sidebar>
+			<nav>
+					
+					<div class="form-group">
+						<button id="uploadBtn" class="outline" style="width: 100%;">Cargar imagen</button>
+						<input type="file" id="imageInput" accept="image/*" hidden />
+					</div>
+
+				<fieldset>
+					<legend>Algoritmo</legend>
+					
+					<div class="form-group">
+						<label for="algorithm">Método</label>
+						<select id="algorithm">
+							<option value="floyd-steinberg" selected>Floyd-Steinberg</option>
+							<option value="jarvis">Jarvis-Judice-Ninke</option>
+							<option value="stucki">Stucki</option>
+							<option value="atkinson">Atkinson</option>
+							<option value="ordered">Ordenado (Bayer)</option>
+							<option value="random">Aleatorio</option>
+						</select>
+					</div>
+
+					<div class="form-group">
+						<label for="colorMode">Modo color</label>
+						<select id="colorMode">
+							<option value="color" selected>Color</option>
+							<option value="grayscale">Escala de grises</option>
+							<option value="monochrome">Monocromo</option>
+						</select>
+					</div>
+
+					<div class="form-group" data-color-mode="grayscale">
+						<label for="grayLevels">Niveles gris</label>
+						<input type="number" id="grayLevels" min="2" max="256" value="8" />
+					</div>
+
+					<div class="form-group">
+						<label for="colorCount">Niveles</label>
+						<input type="number" id="colorCount" min="2" max="256" value="2" />
+					</div>
+
+					<div class="form-group">
+						<label for="pixelScale">Escala píxel</label>
+						<input type="number" id="pixelScale" min="1" max="8" value="1" />
+					</div>
+
+					<div class="form-group" data-algorithm="floyd-steinberg jarvis stucki atkinson">
+						<label for="errorIntensity">Intensidad error</label>
+						<input type="range" id="errorIntensity" min="0" max="200" value="100" />
+					</div>
+
+					<div class="form-group" data-algorithm="ordered">
+						<label for="bayerSize">Matriz Bayer</label>
+						<select id="bayerSize">
+							<option value="2">2x2</option>
+							<option value="4" selected>4x4</option>
+							<option value="8">8x8</option>
+						</select>
+					</div>
+
+					<div class="form-group" data-algorithm="random ordered">
+						<label for="ditherThreshold">Umbral</label>
+						<input type="range" id="ditherThreshold" min="0" max="100" value="50" />
+					</div>
+
+					<div class="form-group checkbox-group">
+						<input type="checkbox" id="serpentine" />
+						<label for="serpentine">Serpentino</label>
+					</div>
+				</fieldset>
+        <button id="downloadBtn" style="width: 100%; display: none;">Descargar</button>
+			</nav>
+		</aside>
+
+		<main>
+			<section>
+				<div class="canvas-grid">
+					<fieldset class="canvas-card">
+						<legend>Original</legend>
+						<canvas id="originalCanvas"></canvas>
+					</fieldset>
+					<fieldset class="canvas-card">
+						<legend>Dithered</legend>
+						<canvas id="ditheredCanvas"></canvas>
+					</fieldset>
+				</div>
+			</section>
+		</main>
+
+		<script src="https://unpkg.com/@knadh/oat/oat.min.js" defer></script>
+	</body>
+</html>
+
+<script>
+	const imageInput = document.getElementById('imageInput') as HTMLInputElement;
+	const uploadBtn = document.getElementById('uploadBtn') as HTMLButtonElement;
+	const originalCanvas = document.getElementById('originalCanvas') as HTMLCanvasElement;
+	const ditheredCanvas = document.getElementById('ditheredCanvas') as HTMLCanvasElement;
+	const colorCountInput = document.getElementById('colorCount') as HTMLInputElement;
+	const algorithmInput = document.getElementById('algorithm') as HTMLSelectElement;
+	const pixelScaleInput = document.getElementById('pixelScale') as HTMLInputElement;
+	const serpentineInput = document.getElementById('serpentine') as HTMLInputElement;
+	const downloadBtn = document.getElementById('downloadBtn') as HTMLButtonElement;
+	const errorIntensityInput = document.getElementById('errorIntensity') as HTMLInputElement;
+	const bayerSizeInput = document.getElementById('bayerSize') as HTMLSelectElement;
+	const ditherThresholdInput = document.getElementById('ditherThreshold') as HTMLInputElement;
+	const colorModeInput = document.getElementById('colorMode') as HTMLSelectElement;
+	const grayLevelsInput = document.getElementById('grayLevels') as HTMLInputElement;
+	const originalCtx = originalCanvas.getContext('2d')!;
+	const ditheredCtx = ditheredCanvas.getContext('2d')!;
+
+	let currentImage: ImageData | null = null;
+
+	function updateColorModeControls() {
+		const colorMode = colorModeInput.value;
+		const formGroups = document.querySelectorAll('.form-group[data-color-mode]');
+		formGroups.forEach(group => {
+			const modes = (group as HTMLElement).dataset.colorMode?.split(' ') || [];
+			(group as HTMLElement).style.display = modes.includes(colorMode) ? 'block' : 'none';
+		});
+	}
+
+	function updateAlgorithmControls() {
+		const algorithm = algorithmInput.value;
+		const formGroups = document.querySelectorAll('.form-group[data-algorithm]');
+		formGroups.forEach(group => {
+			const algorithms = (group as HTMLElement).dataset.algorithm?.split(' ') || [];
+			(group as HTMLElement).style.display = algorithms.includes(algorithm) ? 'block' : 'none';
+		});
+	}
+
+	function findClosestColor(value: number, levels: number): number {
+		const step = 255 / (levels - 1);
+		return Math.round(Math.round(value / step) * step);
+	}
+
+	const bayerMatrix4x4 = [
+		[ 0,  8,  2, 10],
+		[12,  4, 14,  6],
+		[ 3, 11,  1,  9],
+		[15,  7, 13,  5]
+	];
+
+	const bayerMatrix2x2 = [
+		[0, 2],
+		[3, 1]
+	];
+
+	const bayerMatrix8x8 = [
+		[ 0, 32,  8, 40,  2, 34, 10, 42],
+		[48, 16, 56, 24, 50, 18, 58, 26],
+		[12, 44,  4, 36, 14, 46,  6, 38],
+		[60, 28, 52, 20, 62, 30, 54, 22],
+		[ 3, 35, 11, 43,  1, 33,  9, 41],
+		[51, 19, 59, 27, 49, 17, 57, 25],
+		[15, 47,  7, 39, 13, 45,  5, 37],
+		[63, 31, 55, 23, 61, 29, 53, 21]
+	];
+
+	function orderedDither(x: number, y: number, size: number): number {
+		let matrix: number[][];
+		if (size === 2) matrix = bayerMatrix2x2;
+		else if (size === 8) matrix = bayerMatrix8x8;
+		else matrix = bayerMatrix4x4;
+		
+		return matrix[y % size][x % size] / (size * size);
+	}
+
+	function randomDither(levels: number): number {
+		return Math.floor(Math.random() * levels);
+	}
+
+	type DitherAlgorithm = 'floyd-steinberg' | 'jarvis' | 'stucki' | 'atkinson' | 'ordered' | 'random';
+
+	type ColorMode = 'color' | 'grayscale' | 'monochrome';
+
+	function applyColorMode(imageData: ImageData, colorMode: ColorMode, grayLevels: number): ImageData {
+		const width = imageData.width;
+		const height = imageData.height;
+		const result = new ImageData(width, height);
+		
+		for (let i = 0; i < imageData.data.length; i += 4) {
+			const r = imageData.data[i];
+			const g = imageData.data[i + 1];
+			const b = imageData.data[i + 2];
+			
+			let gray: number;
+			if (colorMode === 'color') {
+				result.data[i] = r;
+				result.data[i + 1] = g;
+				result.data[i + 2] = b;
+			} else {
+				gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+				
+				if (colorMode === 'monochrome') {
+					gray = gray < 128 ? 0 : 255;
+				} else if (colorMode === 'grayscale') {
+					const step = 255 / (grayLevels - 1);
+					gray = Math.round(Math.round(gray / step) * step);
+				}
+				
+				result.data[i] = gray;
+				result.data[i + 1] = gray;
+				result.data[i + 2] = gray;
+			}
+			result.data[i + 3] = 255;
+		}
+		
+		return result;
+	}
+
+	function diffuseError(data: Uint8ClampedArray, width: number, height: number, x: number, y: number, 
+		errR: number, errG: number, errB: number, offsets: [number, number, number][]) {
+		for (const [dx, dy, factor] of offsets) {
+			const nx = x + dx;
+			const ny = y + dy;
+			if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+				const idx = (ny * width + nx) * 4;
+				data[idx] = clamp(data[idx] + errR * factor);
+				data[idx + 1] = clamp(data[idx + 1] + errG * factor);
+				data[idx + 2] = clamp(data[idx + 2] + errB * factor);
+			}
+		}
+	}
+
+	function ditherImage(imageData: ImageData, colorLevels: number, 
+		serpentine: boolean, algorithm: DitherAlgorithm, 
+		errorIntensity: number = 100, bayerSize: number = 4, threshold: number = 50): ImageData {
+		
+		const width = imageData.width;
+		const height = imageData.height;
+		const data = new Uint8ClampedArray(imageData.data);
+		const result = new ImageData(width, height);
+		const thresholdOffset = (threshold - 50) / 50;
+
+		if (algorithm === 'ordered') {
+			const thresholdAdj = (threshold - 50) / 100;
+			for (let y = 0; y < height; y++) {
+				for (let x = 0; x < width; x++) {
+					const idx = (y * width + x) * 4;
+					const oldR = data[idx];
+					const oldG = data[idx + 1];
+					const oldB = data[idx + 2];
+					
+					const bayerValue = orderedDither(x, y, bayerSize);
+					
+					const scaledR = (oldR / 255) * (colorLevels - 1) + thresholdAdj;
+					const scaledG = (oldG / 255) * (colorLevels - 1) + thresholdAdj;
+					const scaledB = (oldB / 255) * (colorLevels - 1) + thresholdAdj;
+					
+					const newR = Math.min(colorLevels - 1, Math.max(0, Math.floor(scaledR + bayerValue)));
+					const newG = Math.min(colorLevels - 1, Math.max(0, Math.floor(scaledG + bayerValue)));
+					const newB = Math.min(colorLevels - 1, Math.max(0, Math.floor(scaledB + bayerValue)));
+					
+					const finalR = Math.round((newR / (colorLevels - 1)) * 255);
+					const finalG = Math.round((newG / (colorLevels - 1)) * 255);
+					const finalB = Math.round((newB / (colorLevels - 1)) * 255);
+
+					result.data[idx] = clamp(finalR);
+					result.data[idx + 1] = clamp(finalG);
+					result.data[idx + 2] = clamp(finalB);
+					result.data[idx + 3] = 255;
+				}
+			}
+			return result;
+		}
+
+		if (algorithm === 'random') {
+			for (let y = 0; y < height; y++) {
+				for (let x = 0; x < width; x++) {
+					const idx = (y * width + x) * 4;
+					const oldR = data[idx];
+					const oldG = data[idx + 1];
+					const oldB = data[idx + 2];
+					
+					const offset = (randomDither(colorLevels) - (colorLevels - 1) / 2) * (thresholdOffset + 1) * 4;
+					
+					const newR = clamp(findClosestColor(oldR + offset, colorLevels));
+					const newG = clamp(findClosestColor(oldG + offset, colorLevels));
+					const newB = clamp(findClosestColor(oldB + offset, colorLevels));
+
+					result.data[idx] = newR;
+					result.data[idx + 1] = newG;
+					result.data[idx + 2] = newB;
+					result.data[idx + 3] = 255;
+				}
+			}
+			return result;
+		}
+
+		const errorOffsets: Record<DitherAlgorithm, [number, number, number][]> = {
+			'floyd-steinberg': [[1, 0, 7/16], [-1, 1, 3/16], [0, 1, 5/16], [1, 1, 1/16]],
+			'jarvis': [[1, 0, 7/48], [2, 0, 5/48], [-2, 1, 3/48], [-1, 1, 5/48], [0, 1, 7/48], [1, 1, 5/48], [2, 1, 3/48],
+			           [-2, 2, 1/48], [-1, 2, 3/48], [0, 2, 5/48], [1, 2, 3/48], [2, 2, 1/48]],
+			'stucki': [[1, 0, 8/42], [2, 0, 4/42], [-2, 1, 2/42], [-1, 1, 4/42], [0, 1, 8/42], [1, 1, 4/42], [2, 1, 2/42],
+			          [-2, 2, 1/42], [-1, 2, 2/42], [0, 2, 4/42], [1, 2, 2/42], [2, 2, 1/42]],
+			'atkinson': [[1, 0, 1/8], [2, 0, 1/8], [-1, 1, 1/8], [0, 1, 1/8], [1, 1, 1/8], [0, 2, 1/8]],
+			'ordered': [],
+			'random': []
+		};
+
+		const intensityFactor = errorIntensity / 100;
+
+		for (let y = 0; y < height; y++) {
+			const forward = !serpentine || y % 2 === 0;
+			const startX = forward ? 0 : width - 1;
+			const endX = forward ? width : -1;
+			const stepX = forward ? 1 : -1;
+
+			for (let x = startX; x !== endX; x += stepX) {
+				const idx = (y * width + x) * 4;
+				
+				const oldR = data[idx];
+				const oldG = data[idx + 1];
+				const oldB = data[idx + 2];
+
+				const newR = findClosestColor(oldR, colorLevels);
+				const newG = findClosestColor(oldG, colorLevels);
+				const newB = findClosestColor(oldB, colorLevels);
+
+				result.data[idx] = newR;
+				result.data[idx + 1] = newG;
+				result.data[idx + 2] = newB;
+				result.data[idx + 3] = 255;
+
+				const errR = oldR - newR;
+				const errG = oldG - newG;
+				const errB = oldB - newB;
+
+				diffuseError(data, width, height, x, y, errR * intensityFactor, errG * intensityFactor, errB * intensityFactor, errorOffsets[algorithm]);
+			}
+		}
+
+		return result;
+	}
+
+	function clamp(value: number): number {
+		return Math.max(0, Math.min(255, Math.round(value)));
+	}
+
+	function processImage(img: HTMLImageElement, colorLevels: number, 
+		serpentine: boolean, algorithm: DitherAlgorithm, pixelScale: number,
+		errorIntensity: number = 100, bayerSize: number = 4, ditherThreshold: number = 50,
+		colorMode: ColorMode = 'color', grayLevels: number = 8) {
+		
+		const maxSize = 800;
+		let width = img.width;
+		let height = img.height;
+
+		if (width > maxSize || height > maxSize) {
+			const ratio = Math.min(maxSize / width, maxSize / height);
+			width = Math.floor(width * ratio);
+			height = Math.floor(height * ratio);
+		}
+
+		originalCanvas.width = width;
+		originalCanvas.height = height;
+		ditheredCanvas.width = width;
+		ditheredCanvas.height = height;
+
+		originalCtx.drawImage(img, 0, 0, width, height);
+		currentImage = originalCtx.getImageData(0, 0, width, height);
+
+		const smallWidth = Math.floor(width / pixelScale);
+		const smallHeight = Math.floor(height / pixelScale);
+		
+		const smallCanvas = document.createElement('canvas');
+		smallCanvas.width = smallWidth;
+		smallCanvas.height = smallHeight;
+		const smallCtx = smallCanvas.getContext('2d')!;
+		smallCtx.imageSmoothingEnabled = false;
+		smallCtx.drawImage(img, 0, 0, smallWidth, smallHeight);
+		
+		const smallImageData = smallCtx.getImageData(0, 0, smallWidth, smallHeight);
+		const colorAdjusted = applyColorMode(smallImageData, colorMode, grayLevels);
+		const dithered = ditherImage(colorAdjusted, colorLevels, serpentine, algorithm, errorIntensity, bayerSize, ditherThreshold);
+		
+		const tempCanvas = document.createElement('canvas');
+		tempCanvas.width = smallWidth;
+		tempCanvas.height = smallHeight;
+		const tempCtx = tempCanvas.getContext('2d')!;
+		tempCtx.putImageData(dithered, 0, 0);
+		
+		ditheredCtx.imageSmoothingEnabled = false;
+		ditheredCtx.drawImage(tempCanvas, 0, 0, width, height);
+	}
+
+	function reprocess() {
+		if (!currentImage) return;
+		const colorLevels = parseInt(colorCountInput.value);
+		const serpentine = serpentineInput.checked;
+		const algorithm = algorithmInput.value as DitherAlgorithm;
+		const pixelScale = parseInt(pixelScaleInput.value) || 1;
+		const errorIntensity = parseInt(errorIntensityInput.value) || 100;
+		const bayerSize = parseInt(bayerSizeInput.value) || 4;
+		const ditherThreshold = parseInt(ditherThresholdInput.value) || 50;
+		const colorMode = colorModeInput.value as ColorMode;
+		const grayLevels = parseInt(grayLevelsInput.value) || 8;
+		
+		const width = currentImage.width;
+		const height = currentImage.height;
+		
+		const smallWidth = Math.floor(width / pixelScale);
+		const smallHeight = Math.floor(height / pixelScale);
+		
+		const tempCanvas = document.createElement('canvas');
+		tempCanvas.width = width;
+		tempCanvas.height = height;
+		const tempCtx = tempCanvas.getContext('2d')!;
+		tempCtx.putImageData(currentImage, 0, 0);
+		
+		const smallCanvas = document.createElement('canvas');
+		smallCanvas.width = smallWidth;
+		smallCanvas.height = smallHeight;
+		const smallCtx = smallCanvas.getContext('2d')!;
+		smallCtx.imageSmoothingEnabled = false;
+		smallCtx.drawImage(tempCanvas, 0, 0, smallWidth, smallHeight);
+		
+		const smallImageData = smallCtx.getImageData(0, 0, smallWidth, smallHeight);
+		const colorAdjusted = applyColorMode(smallImageData, colorMode, grayLevels);
+		const dithered = ditherImage(colorAdjusted, colorLevels, serpentine, algorithm, errorIntensity, bayerSize, ditherThreshold);
+		
+		const ditheredCanvas2 = document.createElement('canvas');
+		ditheredCanvas2.width = smallWidth;
+		ditheredCanvas2.height = smallHeight;
+		const ditheredCtx2 = ditheredCanvas2.getContext('2d')!;
+		ditheredCtx2.putImageData(dithered, 0, 0);
+		
+		ditheredCtx.imageSmoothingEnabled = false;
+		ditheredCtx.drawImage(ditheredCanvas2, 0, 0, width, height);
+	}
+
+	uploadBtn.addEventListener('click', () => {
+		imageInput.click();
+	});
+
+	imageInput.addEventListener('change', (e) => {
+		const file = (e.target as HTMLInputElement).files?.[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = (event) => {
+			const img = new Image();
+			img.onload = () => {
+				processImage(img, 
+					parseInt(colorCountInput.value),
+					serpentineInput.checked,
+					algorithmInput.value as DitherAlgorithm,
+					parseInt(pixelScaleInput.value) || 1,
+					parseInt(errorIntensityInput.value) || 100,
+					parseInt(bayerSizeInput.value) || 4,
+					parseInt(ditherThresholdInput.value) || 50,
+					colorModeInput.value as ColorMode,
+					parseInt(grayLevelsInput.value) || 8
+				);
+				downloadBtn.style.display = 'block'
+			};
+			img.src = event.target?.result as string;
+		};
+		reader.readAsDataURL(file);
+	});
+
+	colorCountInput.addEventListener('input', () => {
+		reprocess();
+	});
+
+	algorithmInput.addEventListener('change', () => {
+		updateAlgorithmControls();
+		reprocess();
+	});
+
+	pixelScaleInput.addEventListener('input', () => {
+		reprocess();
+	});
+
+	serpentineInput.addEventListener('change', () => {
+		reprocess();
+	});
+
+	errorIntensityInput.addEventListener('input', () => {
+		reprocess();
+	});
+
+	bayerSizeInput.addEventListener('change', () => {
+		reprocess();
+	});
+
+	ditherThresholdInput.addEventListener('input', () => {
+		reprocess();
+	});
+
+	colorModeInput.addEventListener('change', () => {
+		updateColorModeControls();
+		reprocess();
+	});
+
+	grayLevelsInput.addEventListener('input', () => {
+		reprocess();
+	});
+
+	updateAlgorithmControls();
+	updateColorModeControls();
+
+	downloadBtn.addEventListener('click', () => {
+		const link = document.createElement('a');
+		link.download = 'dithered-image.png';
+		link.href = ditheredCanvas.toDataURL('image/png');
+		link.click();
+	});
+</script>
+
+<style>
+	html, body {
+		overflow: hidden;
+	}
+
+	main {
+		padding: 2rem;
+	}
+
+	h1 + p {
+		margin-bottom: 2rem;
+	}
+
+	section {
+		margin-bottom: 2rem;
+	}
+
+	.form-group {
+		margin-bottom: 1rem;
+	}
+
+	.form-group label {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.checkbox-group {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.checkbox-group label {
+		margin-bottom: 0;
+	}
+
+	input[type="range"] {
+		width: 100%;
+	}
+
+	.canvas-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.canvas-card {
+		padding: 1rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+	}
+
+	.canvas-card h4 {
+		margin-top: 0;
+		margin-bottom: 1rem;
+	}
+
+	canvas {
+		max-width: 100%;
+		height: auto;
+		display: block;
+	}
+</style>
